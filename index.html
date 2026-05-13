@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quizzeria</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@600;800;900&family=Righteous&display=swap');
+
+        :root {
+            --bg-start: #14052e;
+            --bg-end: #0a0114;
+            --card-bg: #2a114f;
+            --card-border: #8b3dff;
+            --primary: #ff007f;
+            --primary-dark: #b30059;
+            --primary-hover: #ff3399;
+            --secondary: #00f3ff;
+            --secondary-dark: #00aeb3;
+            --text-main: #ffffff;
+            --text-muted: #a98ee3;
+            --correct: #39ff14;
+            --correct-dark: #22a80a;
+            --wrong: #ff2a2a;
+            --wrong-dark: #b30000;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Nunito', sans-serif;
+        }
+
+        body {
+            background: radial-gradient(circle at center, var(--bg-start) 0%, var(--bg-end) 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+            background-attachment: fixed;
+        }
+
+        /* Scanline effect for arcade feel */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--card-bg);
+            border: 4px solid var(--card-border);
+            border-radius: 24px;
+            padding: 40px 32px;
+            box-shadow: 0 12px 0 #180933, 0 12px 30px rgba(0, 0, 0, 0.7);
+            position: relative;
+            z-index: 10;
+        }
+
+        .screen {
+            display: none;
+            opacity: 0;
+            transform: scale(0.95);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .screen.active {
+            display: block;
+            opacity: 1;
+            transform: scale(1);
+            animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        @keyframes popIn {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        h1 {
+            font-family: 'Righteous', cursive;
+            font-size: 3.5rem;
+            text-align: center;
+            margin-bottom: 12px;
+            color: var(--secondary);
+            text-shadow: 4px 4px 0 var(--secondary-dark), 0 0 20px rgba(0, 243, 255, 0.6);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        p.subtitle {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 32px;
+            font-size: 1.2rem;
+            font-weight: 800;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 18px 20px;
+            border-radius: 16px;
+            border: 4px solid var(--card-border);
+            background: #180933;
+            color: var(--text-main);
+            font-size: 1.3rem;
+            font-weight: 900;
+            margin-bottom: 24px;
+            outline: none;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--secondary);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+        }
+
+        .difficulty-selector {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 32px;
+        }
+
+        .diff-btn {
+            flex: 1;
+            padding: 14px;
+            background: #381a6b;
+            border: 3px solid var(--card-border);
+            border-bottom: 6px solid #200f3d;
+            border-radius: 16px;
+            color: var(--text-muted);
+            font-weight: 900;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .diff-btn.selected {
+            background: var(--primary);
+            border-color: var(--primary-dark);
+            border-bottom-color: #800040;
+            color: white;
+            text-shadow: 1px 1px 0 rgba(0,0,0,0.5);
+            transform: translateY(2px);
+            border-bottom-width: 4px;
+        }
+
+        .diff-btn:active:not(.selected) {
+            transform: translateY(4px);
+            border-bottom-width: 2px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
+            border: 3px solid transparent;
+            border-radius: 16px;
+            font-size: 1.3rem;
+            font-weight: 900;
+            cursor: pointer;
+            transition: all 0.1s;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary-dark);
+            border-bottom: 8px solid var(--primary-dark);
+            text-shadow: 2px 2px 0 rgba(0,0,0,0.3);
+        }
+
+        .btn-primary:active {
+            transform: translateY(8px);
+            border-bottom-width: 0px;
+            margin-bottom: 24px;
+        }
+        
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: #000;
+            border-color: var(--secondary-dark);
+            border-bottom: 8px solid var(--secondary-dark);
+        }
+
+        .btn-secondary:active {
+            transform: translateY(8px);
+            border-bottom-width: 0px;
+            margin-bottom: 24px;
+        }
+        
+        .btn-secondary:hover {
+            background: #33f5ff;
+        }
+
+        /* Quiz Screen */
+        .quiz-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            font-weight: 900;
+            font-size: 1.1rem;
+            color: var(--text-muted);
+            background: #180933;
+            padding: 12px 20px;
+            border-radius: 12px;
+            border: 2px solid var(--card-border);
+        }
+
+        .score-display {
+            color: var(--secondary);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 12px;
+            background: #180933;
+            border-radius: 6px;
+            margin-bottom: 30px;
+            border: 2px solid var(--card-border);
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+
+        .timer-wrapper {
+            position: relative;
+            width: 90px;
+            height: 90px;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #180933;
+            border-radius: 50%;
+            border: 6px solid var(--secondary);
+            box-shadow: inset 0 0 15px rgba(0, 243, 255, 0.4), 0 0 20px rgba(0, 243, 255, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .timer-text {
+            font-family: 'Righteous', cursive;
+            font-size: 2.2rem;
+            color: var(--secondary);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        .timer-warning {
+            border-color: var(--primary);
+            box-shadow: inset 0 0 15px rgba(255, 0, 127, 0.4), 0 0 20px rgba(255, 0, 127, 0.4);
+            animation: pulse 0.5s infinite alternate;
+        }
+        
+        .timer-warning .timer-text {
+            color: var(--primary);
+            text-shadow: 0 0 10px rgba(255, 0, 127, 0.5);
+        }
+
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+
+        .question-text {
+            font-size: 1.6rem;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 32px;
+            line-height: 1.4;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .option-btn {
+            background: #381a6b;
+            border: 3px solid #572e99;
+            border-bottom: 6px solid #200f3d;
+            border-radius: 16px;
+            padding: 16px 20px;
+            color: var(--text-main);
+            font-size: 1.2rem;
+            font-weight: 800;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.1s ease;
+            position: relative;
+            opacity: 0;
+            animation: slideIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        
+        .option-btn:nth-child(1) { animation-delay: 0.1s; }
+        .option-btn:nth-child(2) { animation-delay: 0.2s; }
+        .option-btn:nth-child(3) { animation-delay: 0.3s; }
+        .option-btn:nth-child(4) { animation-delay: 0.4s; }
+
+        .option-btn:hover:not(:disabled) {
+            background: #462285;
+            border-color: var(--card-border);
+        }
+        
+        .option-btn:active:not(:disabled) {
+            transform: translateY(6px);
+            border-bottom-width: 0px;
+            margin-bottom: 6px;
+        }
+
+        .option-btn.correct {
+            background: var(--correct);
+            color: #000;
+            border-color: var(--correct-dark);
+            border-bottom-color: #1a7a08;
+            box-shadow: 0 0 20px rgba(57, 255, 20, 0.4);
+            animation: none;
+            opacity: 1;
+        }
+
+        .option-btn.wrong {
+            background: var(--wrong);
+            color: white;
+            border-color: var(--wrong-dark);
+            border-bottom-color: #800000;
+            box-shadow: 0 0 20px rgba(255, 42, 42, 0.4);
+            animation: none;
+            opacity: 1;
+        }
+
+        .option-btn:disabled {
+            cursor: default;
+        }
+        
+        .option-btn:disabled:not(.correct):not(.wrong) {
+            opacity: 0.5;
+            animation: none;
+        }
+
+        /* End Screen */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: #180933;
+            padding: 20px;
+            border-radius: 16px;
+            text-align: center;
+            border: 3px solid var(--card-border);
+            border-bottom: 6px solid #110526;
+        }
+
+        .stat-card.large {
+            grid-column: span 2;
+            border-color: var(--secondary);
+            border-bottom-color: var(--secondary-dark);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-family: 'Righteous', cursive;
+            margin-bottom: 4px;
+        }
+
+        .stat-card.large .stat-value {
+            font-size: 4rem;
+            color: var(--secondary);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+        
+        #correct-count { color: var(--correct); text-shadow: 0 0 10px rgba(57,255,20,0.5); }
+        #wrong-count { color: var(--wrong); text-shadow: 0 0 10px rgba(255,42,42,0.5); }
+
+        .stat-label {
+            color: var(--text-muted);
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 0.9rem;
+        }
+
+        .grade {
+            font-size: 2.5rem;
+            font-family: 'Righteous', cursive;
+            text-align: center;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        /* Leaderboard */
+        .leaderboard-list {
+            margin-bottom: 32px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            background: #381a6b;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border: 3px solid var(--card-border);
+            transition: transform 0.2s;
+        }
+
+        .leaderboard-item:hover {
+            transform: scale(1.02);
+            border-color: var(--secondary);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
+        }
+
+        .leaderboard-rank {
+            font-family: 'Righteous', cursive;
+            font-size: 1.5rem;
+            color: var(--secondary);
+            margin-right: 16px;
+            width: 32px;
+            text-align: center;
+        }
+
+        .leaderboard-name {
+            flex: 1;
+            font-weight: 900;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+        }
+
+        .leaderboard-score {
+            font-family: 'Righteous', cursive;
+            font-size: 1.4rem;
+            color: var(--primary);
+        }
+        
+        .leaderboard-diff {
+            font-size: 0.8rem;
+            font-weight: 900;
+            color: #000;
+            background: var(--text-muted);
+            padding: 4px 10px;
+            border-radius: 8px;
+            margin-left: 12px;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 768px) {
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container { padding: 30px 20px; border-radius: 20px; border-width: 3px; }
+            h1 { font-size: 2.5rem; }
+            .question-text { font-size: 1.3rem; }
+            .timer-wrapper { width: 70px; height: 70px; }
+            .timer-text { font-size: 1.8rem; }
+            .btn { font-size: 1.1rem; }
+            .stat-card.large .stat-value { font-size: 3rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <!-- Start Screen -->
+        <div class="screen active" id="start-screen">
+            <h1>Quizzeria</h1>
+            <p class="subtitle">Test your knowledge across science, history, and more!</p>
+            
+            <input type="text" id="player-name" placeholder="ENTER YOUR NAME" required autocomplete="off">
+            
+            <p style="margin-bottom: 12px; font-weight: 900; color: var(--text-muted); text-transform: uppercase;">Select Difficulty</p>
+            <div class="difficulty-selector">
+                <button class="diff-btn selected" data-diff="Easy">Easy</button>
+                <button class="diff-btn" data-diff="Medium">Medium</button>
+                <button class="diff-btn" data-diff="Hard">Hard</button>
+            </div>
+            
+            <button class="btn btn-primary" id="start-btn">Start Game</button>
+            <button class="btn btn-secondary" id="view-leaderboard-btn">View Leaderboard</button>
+        </div>
+
+        <!-- Quiz Screen -->
+        <div class="screen" id="quiz-screen">
+            <div class="quiz-header">
+                <span id="question-counter">Question 1 of 10</span>
+                <span class="score-display">Score: <span id="current-score">0</span></span>
+            </div>
+            
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progress-bar"></div>
+            </div>
+
+            <div class="timer-wrapper" id="timer-circle">
+                <div class="timer-text" id="timer-text">15</div>
+            </div>
+
+            <div class="question-text" id="question-text">
+                Question goes here?
+            </div>
+
+            <div class="options-grid" id="options-container">
+                <!-- Options injected by JS -->
+            </div>
+        </div>
+
+        <!-- End Screen -->
+        <div class="screen" id="end-screen">
+            <h1>Game Over!</h1>
+            <div class="grade" id="grade-text">Excellent!</div>
+            
+            <div class="stats-grid">
+                <div class="stat-card large">
+                    <div class="stat-value" id="final-score">0</div>
+                    <div class="stat-label">Total Score</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="correct-count">0</div>
+                    <div class="stat-label">Correct</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="wrong-count">0</div>
+                    <div class="stat-label">Wrong</div>
+                </div>
+            </div>
+
+            <h2 style="margin-bottom: 16px; font-size: 1.5rem; text-align: center; font-family: 'Righteous', cursive; color: var(--text-muted); text-transform: uppercase;">Top 5 Leaderboard</h2>
+            <div class="leaderboard-list" id="end-leaderboard-list">
+                <!-- Leaderboard items injected by JS -->
+            </div>
+
+            <button class="btn btn-primary" id="play-again-btn">Play Again</button>
+        </div>
+
+        <!-- Leaderboard Screen (standalone) -->
+        <div class="screen" id="leaderboard-screen">
+            <h1 style="margin-bottom: 32px;">Global Leaderboard</h1>
+            <div class="leaderboard-list" id="main-leaderboard-list">
+                <!-- Leaderboard items injected by JS -->
+            </div>
+            <button class="btn btn-secondary" id="back-to-start-btn">Back to Menu</button>
+        </div>
+
+    </div>
+
+    <script>
+        const questionsData = [
+            // Easy
+            { question: "What is the capital of France?", options: ["Paris", "London", "Berlin", "Madrid"], answer: "Paris", difficulty: "Easy" },
+            { question: "Which planet is known as the Red Planet?", options: ["Mars", "Venus", "Jupiter", "Saturn"], answer: "Mars", difficulty: "Easy" },
+            { question: "What is the largest ocean on Earth?", options: ["Pacific Ocean", "Atlantic Ocean", "Indian Ocean", "Arctic Ocean"], answer: "Pacific Ocean", difficulty: "Easy" },
+            { question: "Who was the first President of the United States?", options: ["George Washington", "Thomas Jefferson", "Abraham Lincoln", "John Adams"], answer: "George Washington", difficulty: "Easy" },
+            { question: "What is the closest star to Earth?", options: ["The Sun", "Proxima Centauri", "Sirius", "Alpha Centauri"], answer: "The Sun", difficulty: "Easy" },
+            { question: "What is the fastest land animal?", options: ["Cheetah", "Lion", "Horse", "Greyhound"], answer: "Cheetah", difficulty: "Easy" },
+            { question: "How many continents are there on Earth?", options: ["7", "5", "6", "8"], answer: "7", difficulty: "Easy" },
+            { question: "What is H2O more commonly known as?", options: ["Water", "Salt", "Oxygen", "Hydrogen"], answer: "Water", difficulty: "Easy" },
+            { question: "In which country were the first Olympic Games held?", options: ["Greece", "Italy", "Egypt", "China"], answer: "Greece", difficulty: "Easy" },
+            { question: "What is the tallest animal in the world?", options: ["Giraffe", "Elephant", "Camel", "Ostrich"], answer: "Giraffe", difficulty: "Easy" },
+
+            // Medium
+            { question: "In what year did the Titanic sink?", options: ["1912", "1905", "1918", "1923"], answer: "1912", difficulty: "Medium" },
+            { question: "What is the powerhouse of the cell?", options: ["Mitochondria", "Nucleus", "Ribosome", "Endoplasmic reticulum"], answer: "Mitochondria", difficulty: "Medium" },
+            { question: "What is the chemical symbol for Gold?", options: ["Au", "Ag", "Fe", "Cu"], answer: "Au", difficulty: "Medium" },
+            { question: "Who painted the Mona Lisa?", options: ["Leonardo da Vinci", "Pablo Picasso", "Vincent van Gogh", "Michelangelo"], answer: "Leonardo da Vinci", difficulty: "Medium" },
+            { question: "What is the capital of Japan?", options: ["Tokyo", "Kyoto", "Osaka", "Seoul"], answer: "Tokyo", difficulty: "Medium" },
+            { question: "Who was the first man to walk on the moon?", options: ["Neil Armstrong", "Buzz Aldrin", "Yuri Gagarin", "Michael Collins"], answer: "Neil Armstrong", difficulty: "Medium" },
+            { question: "Which element has the atomic number 1?", options: ["Hydrogen", "Helium", "Oxygen", "Carbon"], answer: "Hydrogen", difficulty: "Medium" },
+            { question: "Which ancient civilization built the Pyramids of Giza?", options: ["Egyptians", "Mayans", "Incas", "Aztecs"], answer: "Egyptians", difficulty: "Medium" },
+            { question: "Who invented the telephone?", options: ["Alexander Graham Bell", "Thomas Edison", "Nikola Tesla", "Guglielmo Marconi"], answer: "Alexander Graham Bell", difficulty: "Medium" },
+            { question: "Which planet has the most rings?", options: ["Saturn", "Jupiter", "Uranus", "Neptune"], answer: "Saturn", difficulty: "Medium" },
+
+            // Hard
+            { question: "Which ancient civilization built Machu Picchu?", options: ["Incas", "Aztecs", "Mayans", "Olmecs"], answer: "Incas", difficulty: "Hard" },
+            { question: "What is the hardest natural substance on Earth?", options: ["Diamond", "Graphene", "Quartz", "Topaz"], answer: "Diamond", difficulty: "Hard" },
+            { question: "Which gas makes up the majority of Earth's atmosphere?", options: ["Nitrogen", "Oxygen", "Carbon Dioxide", "Hydrogen"], answer: "Nitrogen", difficulty: "Hard" },
+            { question: "In what year did World War II end?", options: ["1945", "1939", "1918", "1960"], answer: "1945", difficulty: "Hard" },
+            { question: "Who is known as the father of the computer?", options: ["Charles Babbage", "Alan Turing", "John von Neumann", "Ada Lovelace"], answer: "Charles Babbage", difficulty: "Hard" },
+            { question: "What is the smallest country in the world by land area?", options: ["Vatican City", "Monaco", "San Marino", "Liechtenstein"], answer: "Vatican City", difficulty: "Hard" },
+            { question: "What is the official currency of Japan?", options: ["Yen", "Won", "Yuan", "Ringgit"], answer: "Yen", difficulty: "Hard" },
+            { question: "Who was the first female Prime Minister of the United Kingdom?", options: ["Margaret Thatcher", "Theresa May", "Indira Gandhi", "Angela Merkel"], answer: "Margaret Thatcher", difficulty: "Hard" },
+            { question: "Which scientist proposed the theory of general relativity?", options: ["Albert Einstein", "Isaac Newton", "Niels Bohr", "Stephen Hawking"], answer: "Albert Einstein", difficulty: "Hard" },
+            { question: "In which year did the Berlin Wall fall?", options: ["1989", "1991", "1985", "1993"], answer: "1989", difficulty: "Hard" }
+        ];
+
+        let currentQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let correctCount = 0;
+        let wrongCount = 0;
+        let timerInterval;
+        let timeLeft = 15;
+        let playerName = "";
+        let selectedDifficulty = "Easy";
+        const MAX_QUESTIONS = 10;
+        let audioCtx;
+
+        // UI Elements
+        const screens = document.querySelectorAll('.screen');
+        const startBtn = document.getElementById('start-btn');
+        const viewLeaderboardBtn = document.getElementById('view-leaderboard-btn');
+        const backToStartBtn = document.getElementById('back-to-start-btn');
+        const playAgainBtn = document.getElementById('play-again-btn');
+        const diffBtns = document.querySelectorAll('.diff-btn');
+
+        // Event Listeners
+        diffBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                diffBtns.forEach(b => b.classList.remove('selected'));
+                e.target.classList.add('selected');
+                selectedDifficulty = e.target.dataset.diff;
+            });
+        });
+
+        startBtn.addEventListener('click', startGame);
+        viewLeaderboardBtn.addEventListener('click', () => {
+            renderLeaderboard('main-leaderboard-list');
+            showScreen('leaderboard-screen');
+        });
+        backToStartBtn.addEventListener('click', () => showScreen('start-screen'));
+        playAgainBtn.addEventListener('click', () => {
+            document.getElementById('player-name').value = '';
+            showScreen('start-screen');
+        });
+
+        // Functions
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); 
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); 
+                osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2); 
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(80, audioCtx.currentTime + 0.3);
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'tick') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            }
+        }
+
+        function showScreen(screenId) {
+            screens.forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function startGame() {
+            const nameInput = document.getElementById('player-name').value.trim();
+            if (!nameInput) {
+                alert("Please enter your player name to begin!");
+                return;
+            }
+            playerName = nameInput;
+            initAudio();
+            
+            // Filter and shuffle questions
+            const filtered = questionsData.filter(q => q.difficulty === selectedDifficulty);
+            currentQuestions = [...filtered].sort(() => Math.random() - 0.5).slice(0, MAX_QUESTIONS);
+            
+            currentQuestionIndex = 0;
+            score = 0;
+            correctCount = 0;
+            wrongCount = 0;
+            
+            document.getElementById('current-score').textContent = score;
+            showScreen('quiz-screen');
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            clearInterval(timerInterval);
+            timeLeft = 15;
+            updateTimerDisplay();
+            document.getElementById('timer-circle').classList.remove('timer-warning');
+            
+            const q = currentQuestions[currentQuestionIndex];
+            document.getElementById('question-counter').textContent = `Question ${currentQuestionIndex + 1} of ${currentQuestions.length}`;
+            document.getElementById('question-text').textContent = q.question;
+            
+            const progress = (currentQuestionIndex / currentQuestions.length) * 100;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+            
+            const optionsContainer = document.getElementById('options-container');
+            optionsContainer.innerHTML = '';
+            
+            const shuffledOptions = [...q.options].sort(() => Math.random() - 0.5);
+            
+            shuffledOptions.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.textContent = opt;
+                btn.onclick = () => selectAnswer(btn, opt, q.answer);
+                optionsContainer.appendChild(btn);
+            });
+            
+            timerInterval = setInterval(handleTick, 1000);
+        }
+
+        function handleTick() {
+            timeLeft--;
+            updateTimerDisplay();
+            
+            if (timeLeft === 3) {
+                document.getElementById('timer-circle').classList.add('timer-warning');
+            }
+            
+            if (timeLeft > 0 && timeLeft <= 3) {
+                playSound('tick');
+            }
+            
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                handleTimeOut();
+            }
+        }
+
+        function updateTimerDisplay() {
+            document.getElementById('timer-text').textContent = timeLeft;
+        }
+
+        function selectAnswer(btn, selected, correct) {
+            clearInterval(timerInterval);
+            const buttons = document.querySelectorAll('.option-btn');
+            buttons.forEach(b => b.disabled = true);
+            
+            if (selected === correct) {
+                btn.classList.add('correct');
+                score += 100 + (timeLeft * 10); // Base score + time bonus
+                correctCount++;
+                document.getElementById('current-score').textContent = score;
+                playSound('correct');
+            } else {
+                btn.classList.add('wrong');
+                wrongCount++;
+                playSound('wrong');
+                // Reveal correct answer
+                buttons.forEach(b => {
+                    if (b.textContent === correct) {
+                        b.classList.add('correct');
+                    }
+                });
+            }
+            
+            setTimeout(nextQuestion, 1500);
+        }
+
+        function handleTimeOut() {
+            const buttons = document.querySelectorAll('.option-btn');
+            buttons.forEach(b => b.disabled = true);
+            
+            const correct = currentQuestions[currentQuestionIndex].answer;
+            wrongCount++;
+            playSound('wrong');
+            
+            buttons.forEach(b => {
+                if (b.textContent === correct) {
+                    b.classList.add('correct');
+                }
+            });
+            
+            setTimeout(nextQuestion, 1500);
+        }
+
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < currentQuestions.length) {
+                loadQuestion();
+            } else {
+                endGame();
+            }
+        }
+
+        function endGame() {
+            showScreen('end-screen');
+            
+            document.getElementById('progress-bar').style.width = '100%';
+            
+            document.getElementById('final-score').textContent = score;
+            document.getElementById('correct-count').textContent = correctCount;
+            document.getElementById('wrong-count').textContent = wrongCount;
+            
+            const percentage = correctCount / currentQuestions.length;
+            let grade = "Try Again";
+            let color = "var(--wrong)";
+            
+            if (percentage >= 0.8) {
+                grade = "Excellent!";
+                color = "var(--correct)";
+            } else if (percentage >= 0.5) {
+                grade = "Good Job!";
+                color = "var(--secondary)"; // Cyan
+            }
+            
+            const gradeText = document.getElementById('grade-text');
+            gradeText.textContent = grade;
+            gradeText.style.color = color;
+            
+            saveScore();
+            renderLeaderboard('end-leaderboard-list');
+        }
+
+        function saveScore() {
+            let leaderboard = JSON.parse(localStorage.getItem('triviaGlobalLeaderboard') || '[]');
+            
+            leaderboard.push({ name: playerName, score: score, difficulty: selectedDifficulty });
+            leaderboard.sort((a, b) => b.score - a.score);
+            leaderboard = leaderboard.slice(0, 5); // Keep top 5 only
+            
+            localStorage.setItem('triviaGlobalLeaderboard', JSON.stringify(leaderboard));
+        }
+
+        function renderLeaderboard(containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            let leaderboard = JSON.parse(localStorage.getItem('triviaGlobalLeaderboard') || '[]');
+            
+            if (leaderboard.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding: 20px; font-weight: bold;">NO HIGH SCORES YET! BE THE FIRST!</p>';
+                return;
+            }
+            
+            leaderboard.forEach((entry, index) => {
+                const item = document.createElement('div');
+                item.className = 'leaderboard-item';
+                
+                let medal = `#${index + 1}`;
+                if (index === 0) medal = '🥇';
+                else if (index === 1) medal = '🥈';
+                else if (index === 2) medal = '🥉';
+
+                item.innerHTML = `
+                    <div style="display:flex; align-items:center;">
+                        <span class="leaderboard-rank">${medal}</span>
+                        <span class="leaderboard-name">${entry.name}</span>
+                    </div>
+                    <div style="display:flex; align-items:center;">
+                        <span class="leaderboard-score">${entry.score}</span>
+                        <span class="leaderboard-diff">${entry.difficulty}</span>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+    </script>
+</body>
+</html>
+
